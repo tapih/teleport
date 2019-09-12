@@ -372,3 +372,10 @@ deb:
 	cd $(BUILDDIR) && ./build-package.sh -t oss -v $(VERSION) -p deb -a $(ARCH) $(RUNTIME_SECTION) $(TARBALL_PATH_SECTION)
 	if [ -f e/Makefile ]; then $(MAKE) -C e deb; fi
 
+.PHONY: ensure-submodules
+ensure-submodules:
+	@if [ ! -d $(shell pwd)/webapps/packages/teleport/ ]; then \
+		git submodule update webapps --init --recursive
+	fi;
+
+#git submodule update webapps --init --recursive
