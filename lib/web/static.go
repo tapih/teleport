@@ -59,7 +59,7 @@ func NewStaticFileSystem(debugMode bool) (http.FileSystem, error) {
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			debugAssetsPath = path.Join(exePath, "../web/dist")
+			debugAssetsPath = path.Join(exePath, "../webapps/packages/teleport/dist")
 		}
 
 		for _, af := range assetsToCheck {
