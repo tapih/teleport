@@ -220,7 +220,7 @@ tag:
 $(BUILDDIR)/webassets.zip:
 ifneq ("$(OS)", "windows")
 	@echo "---> Building OSS web assets."
-	cd web/dist ; zip -qr ../../$(BUILDDIR)/webassets.zip .
+	cd webapps/packages/teleport/dist ; zip -qr ../../$(BUILDDIR)/webassets.zip .
 endif
 
 .PHONY: test-package
@@ -370,10 +370,17 @@ deb:
 	cd $(BUILDDIR) && ./build-package.sh -t oss -v $(VERSION) -p deb -a $(ARCH) $(RUNTIME_SECTION) $(TARBALL_PATH_SECTION)
 	if [ -f e/Makefile ]; then $(MAKE) -C e deb; fi
 
-.PHONY: ensure-submodules
-ensure-submodules:
+.PHONY: init-submodules
+init-submodules:
 	@if [ ! -d $(shell pwd)/webapps/packages/teleport/ ]; then \
-		git submodule update webapps --init --recursive
+		echo "init git OSS submodules"; \
+		git submodule update --init webapps; \
 	fi;
 
-#git submodule update webapps --init --recursive
+.PHONY: init-submodules-e
+init-submodules-e:
+	@if [ ! -d $(shell pwd)/webapps/packages/e/teleport ] || [ ! -d $(shell pwd)/e/lib/ ]; then \
+		echo "init git enterprise submodules"; \
+		git submodule update --init --recursive webapps; \
+		git submodule update --init e; \
+	fi;
