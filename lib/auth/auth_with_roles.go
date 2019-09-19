@@ -972,6 +972,16 @@ func (a *AuthWithRoles) CreateUserWithoutOTP(token string, password string) (ser
 	return a.authServer.CreateUserWithoutOTP(token, password)
 }
 
+func (a *AuthWithRoles) CreateUserInvite(req services.CreateUserInviteRequest) (services.UserToken, error) {
+	// tokens are their own authz mechanism, no need to double check
+	return a.authServer.CreateUserInvite(req)
+}
+
+func (a *AuthWithRoles) CreateUserToken(userToken services.UserToken) (services.UserToken, error) {
+	// tokens are their own authz mechanism, no need to double check
+	return a.authServer.CreateUserToken(userToken)
+}
+
 func (a *AuthWithRoles) CreateUserWithU2FToken(token string, password string, u2fRegisterResponse u2f.RegisterResponse) (services.WebSession, error) {
 	// signup tokens are their own authz resource
 	return a.authServer.CreateUserWithU2FToken(token, password, u2fRegisterResponse)

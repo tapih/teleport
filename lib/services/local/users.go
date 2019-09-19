@@ -661,6 +661,76 @@ func (s *IdentityService) DeleteSignupToken(token string) error {
 	return trace.Wrap(err)
 }
 
+// DeleteUserTokens deletes signup token from the storage
+func (s *IdentityService) DeleteUserTokens(tokenType string, user string) error {
+	userTokens, err := s.GetUserTokens(user)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	for _, token := range userTokens {
+		if token.GetType() != tokenType {
+			continue
+		}
+
+		err = s.DeleteUserToken(token.GetName())
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// GetUserTokens returns all tokens for a given user
+func (s *IdentityService) GetUserTokens(user string) ([]services.UserToken, error) {
+	startKey := backend.Key(userTokenPrefix)
+	result, err := s.GetRange(context.TODO(), startKey, backend.RangeEnd(startKey), backend.NoLimit)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var usertokens []services.UserToken
+	for _, item := range result.Items {
+		usertoken, err := services.UnmarshalUserToken(item.Value)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		if usertoken.GetUser() == user {
+			usertokens = append(usertokens, usertoken)
+		}
+	}
+
+	return usertokens, nil
+}
+
+// DeleteUserToken deletes a UserToken by ID
+func (s *IdentityService) DeleteUserToken(tokenID string) error {
+	if err := s.Delete(context.TODO(), backend.Key(userTokensPrefix, tokenID)); err != nil {
+		if trace.IsNotFound(err) {
+			return trace.NotFound("user token(%v) not found", tokenID)
+		}
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// GetUserToken returns a token by its ID
+func (s *IdentityService) GetUserToken(tokenID string) (services.UserToken, error) {
+	item, err := s.Get(context.TODO(), backend.Key(userTokenPrefix, tokenID))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	usertoken, err := services.UnmarshalUserToken(item.Value)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return usertoken, nil
+}
+
 func (s *IdentityService) UpsertU2FRegisterChallenge(token string, u2fChallenge *u2f.Challenge) error {
 	if token == "" {
 		return trace.BadParameter("missing parmeter token")
@@ -1230,6 +1300,125 @@ func (s *IdentityService) GetGithubAuthRequest(stateToken string) (*services.Git
 	return &req, nil
 }
 
+// GetUserToken returns information about this signup token based on its id
+//func (s *IdentityService) GetUserToken(token string) (*services.UserToken, error) {
+//	userToken, err := c.backend.GetUserToken(token)
+//	if err != nil {
+//		return nil, trace.Wrap(err)r
+//	}
+//	// remove data that can not be sent to the client
+//	userToken.HOTP = nil
+//	return userToken, nil
+//}
+//
+
+// UpsertUserInvite invites a user
+func (s *IdentityService) UpsertUserInvite(userInvite services.UserInvite) (*services.UserInvite, error) {
+	if err := userInvite.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	_, err := s.GetUser(userInvite.Name, false)
+	if err == nil {
+		return nil, trace.BadParameter("user(%v) already registered", userInvite.Name)
+	}
+
+	value, err := services.MarshalUserInvite(userInvite)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	item := backend.Item{
+		Key:   backend.Key(userInvitesPrefix, userInvite.Name),
+		Value: value,
+		//Expires: userInvite.ExpiresIn,
+		//ID:      userInvite.Name,
+	}
+	_, err = s.Put(context.TODO(), item)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return &userInvite, nil
+}
+
+// CreateUserToken creates a token that is used for signups and resets
+func (s *IdentityService) CreateUserToken(usertoken services.UserToken) (services.UserToken, error) {
+	if err := services.CheckUserToken(usertoken.GetType()); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	value, err := services.MarshalUserToken(usertoken)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	item := backend.Item{
+		Key:     backend.Key(userTokensPrefix, usertoken.GetName()),
+		Value:   value,
+		Expires: usertoken.Expiry(),
+	}
+	_, err = s.Create(context.TODO(), item)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return usertoken, nil
+}
+
+// CreateUserInvite invites a user
+func (s *IdentityService) CreateUserInvite(req services.CreateUserInviteRequest) (services.UserToken, error) {
+	//if err := userInvite.CheckAndSetDefaults(); err != nil {
+	//	return nil, trace.Wrap(err)
+	//}
+	//
+	//if userInvite.ExpiresIn > defaults.MaxSignupTokenTTL {
+	//	return nil, trace.BadParameter("failed to create a token: maximum token TTL is %v hours", int(defaults.MaxSignupTokenTTL/time.Hour))
+	//}
+	//
+	//if userInvite.ExpiresIn == 0 {
+	//	userInvite.ExpiresIn = defaults.SignupTokenTTL
+	//}
+	//
+	//// Validate that requested roles exist.
+	//for _, role := range userInvite.Roles {
+	//	if _, err := s.c.GetRole(role); err != nil {
+	//		return nil, trace.Wrap(err)
+	//	}
+	//}
+	//
+	//userToken, err := c.createUserToken(storage.UserTokenTypeInvite, userInvite.Name, userInvite.ExpiresIn)
+	//if err != nil {
+	//	return nil, trace.Wrap(err)
+	//}
+	//
+	//tokenURL, err := formatUserTokenURL(advertiseURL, fmt.Sprintf("/web/newuser/%v", userToken.Token))
+	//if err != nil {
+	//	return nil, trace.Wrap(err)
+	//}
+	//
+	//userToken.URL = tokenURL
+	//
+	//err = c.backend.DeleteUserTokens(storage.UserTokenTypeInvite, userInvite.Name)
+	//if err != nil {
+	//	return nil, trace.Wrap(err)
+	//}
+	//
+	//_, err = c.backend.UpsertUserInvite(userInvite)
+	//if err != nil {
+	//	return nil, trace.Wrap(err)
+	//}
+	//
+	//_, err = c.backend.CreateUserToken(*userToken)
+	//if err != nil {
+	//	return nil, trace.Wrap(err)
+	//}
+
+	//return c.GetUserToken(userToken.Token)
+
+	return nil, nil
+}
+
 const (
 	webPrefix                    = "web"
 	usersPrefix                  = "users"
@@ -1244,10 +1433,12 @@ const (
 	githubPrefix                 = "github"
 	requestsPrefix               = "requests"
 	userTokensPrefix             = "addusertokens"
+	userInvitesPrefix            = "invites"
 	u2fRegChalPrefix             = "adduseru2fchallenges"
 	usedTOTPPrefix               = "used_totp"
 	usedTOTPTTL                  = 30 * time.Second
 	u2fRegistrationPrefix        = "u2fregistration"
 	u2fRegistrationCounterPrefix = "u2fregistrationcounter"
 	u2fSignChallengePrefix       = "u2fsignchallenge"
+	userTokenPrefix              = "usertokens"
 )

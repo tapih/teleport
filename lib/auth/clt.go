@@ -1658,6 +1658,21 @@ func (c *Client) CreateUserWithoutOTP(token string, password string) (services.W
 	return services.GetWebSessionMarshaler().UnmarshalWebSession(out.Bytes())
 }
 
+// CreateUserInvite creates a new invite token for a user.
+func (c *Client) CreateUserInvite(req services.CreateUserInviteRequest) (services.UserToken, error) {
+	out, err := c.PostJSON(c.Endpoint("tokens", "userinvites"), req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var inviteToken services.UserToken
+	if err := json.Unmarshal(out.Bytes(), &inviteToken); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return inviteToken, nil
+}
+
 // CreateUserWithU2FToken creates user account with provided token and U2F sign response
 func (c *Client) CreateUserWithU2FToken(token string, password string, u2fRegisterResponse u2f.RegisterResponse) (services.WebSession, error) {
 	out, err := c.PostJSON(c.Endpoint("u2f", "users"), createUserWithU2FTokenReq{
@@ -2673,6 +2688,9 @@ type IdentityService interface {
 
 	// DeleteAllUsers deletes all users
 	DeleteAllUsers() error
+
+	// CreateUserInvite creates a new invite token for a user.
+	CreateUserInvite(req services.CreateUserInviteRequest) (services.UserToken, error)
 }
 
 // ProvisioningService is a service in control

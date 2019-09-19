@@ -107,6 +107,8 @@ func NewAPIServer(config *APIConfig) http.Handler {
 	srv.POST("/:version/signuptokens/users", srv.withAuth(srv.createUserWithToken))
 	srv.POST("/:version/signuptokens", srv.withAuth(srv.createSignupToken))
 
+	srv.POST("/:version/signuptokens", srv.withAuth(srv.createSignupToken))
+
 	// Servers and presence heartbeat
 	srv.POST("/:version/namespaces/:namespace/nodes", srv.withAuth(srv.upsertNode))
 	srv.POST("/:version/namespaces/:namespace/nodes/keepalive", srv.withAuth(srv.keepAliveNode))
@@ -218,6 +220,8 @@ func NewAPIServer(config *APIConfig) http.Handler {
 	srv.POST("/:version/u2f/users", srv.withAuth(srv.createUserWithU2FToken))
 	srv.POST("/:version/u2f/users/:user/sign", srv.withAuth(srv.u2fSignRequest))
 	srv.GET("/:version/u2f/appid", srv.withAuth(srv.getU2FAppID))
+
+	srv.POST("/:version/usertokens/invites", srv.withAuth(srv.createUserInvite))
 
 	// Provisioning tokens
 	srv.GET("/:version/tokens", srv.withAuth(srv.getTokens))
@@ -1121,6 +1125,21 @@ func (s *APIServer) getClusterCACert(auth ClientI, w http.ResponseWriter, r *htt
 	}
 
 	return localCA, nil
+}
+
+// createUserInvite returns the U2F AppID in the auth configuration
+func (s *APIServer) createUserInvite(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
+	var req services.CreateUserInviteRequest
+	if err := httplib.ReadJSON(r, &req); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	inviteToken, err := auth.CreateUserInvite(req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return inviteToken, nil
 }
 
 // getU2FAppID returns the U2F AppID in the auth configuration

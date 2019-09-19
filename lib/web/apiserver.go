@@ -186,6 +186,8 @@ func NewHandler(cfg Config, opts ...HandlerOption) (*RewritingHandler, error) {
 	// get nodes
 	h.GET("/webapi/sites/:site/namespaces/:namespace/nodes", h.WithClusterAuth(h.siteNodesGet))
 
+	h.POST("/webapi/sites/:site/namespaces/:namespace/invites", h.WithClusterAuth(h.createUserInvite))
+
 	// active sessions handlers
 	h.GET("/webapi/sites/:site/namespaces/:namespace/connect", h.WithClusterAuth(h.siteNodeConnect))       // connect to an active session (via websocket)
 	h.GET("/webapi/sites/:site/namespaces/:namespace/sessions", h.WithClusterAuth(h.siteSessionsGet))      // get active list of sessions
@@ -1413,6 +1415,30 @@ func (h *Handler) siteNodesGet(w http.ResponseWriter, r *http.Request, p httprou
 
 	uiServers := ui.MakeServers(site.GetName(), servers)
 	return makeResponse(uiServers)
+}
+
+type inviteUserReq struct {
+	Name  string   `json:"name"`
+	Roles []string `json:"roles"`
+}
+
+func (h *Handler) createUserInvite(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *SessionContext, site reversetunnel.RemoteSite) (interface{}, error) {
+	clt, err := ctx.GetUserClient(site)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var req inviteUserReq
+	if err := httplib.ReadJSON(r, &req); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	inviteToken, err := clt.CreateUserInvite(services.CreateUserInviteRequest{
+		Name:  req.Name,
+		Roles: req.Roles,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return inviteToken, nil
 }
 
 // siteNodeConnect connect to the site node
