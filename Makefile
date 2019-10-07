@@ -222,7 +222,7 @@ tag:
 $(BUILDDIR)/webassets.zip:
 ifneq ("$(OS)", "windows")
 	@echo "---> Building OSS web assets."
-	cd webapps/packages/teleport/dist ; zip -qr ../../$(BUILDDIR)/webassets.zip .
+	cd webapps/packages/teleport/dist ; zip -qr ../../../../$(BUILDDIR)/webassets.zip .
 endif
 
 .PHONY: test-package
