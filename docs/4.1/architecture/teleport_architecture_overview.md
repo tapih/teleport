@@ -19,7 +19,7 @@ Teleport was designed in accordance with the following principles:
   [OpenSSH](../admin-guide/#using-teleport-with-openssh).
 
 * **Cluster-Oriented Design**: Teleport is built for managing clusters, not
-  individual servers. In practice this means that hosts and [Users](./user-manual)
+  individual servers. In practice this means that hosts and [Users](../user-manual)
   have cluster memberships. Identity management and authorization happen on a
   cluster level.
 
@@ -170,7 +170,7 @@ sending the session history to the auth server to be stored.
 
 !!! note "Note":
     Teleport may also be configured to have the session recording
-    occur on the proxy, see [Audit Log](admin-guide/#audit-log) for more
+    occur on the proxy, see [Audit Log](../admin-guide/#audit-log) for more
     information.
 
 ### 4: Authenticate Node Certificate
@@ -240,7 +240,7 @@ minimal setup of Teleport yourself.
 
 Read the rest of the Architecture Guides:
 
-* [Teleport Users](./teleport_users)
-* [Teleport Nodes](./teleport_nodes)
-* [Teleport Auth](./teleport_auth)
-* [Teleport Proxy](./teleport_proxy)
+* [Teleport Users](../teleport_users)
+* [Teleport Nodes](../teleport_nodes)
+* [Teleport Auth](../teleport_auth)
+* [Teleport Proxy](../teleport_proxy)
