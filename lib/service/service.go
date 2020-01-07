@@ -21,6 +21,7 @@ package service
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -76,6 +77,8 @@ import (
 var log = logrus.WithFields(logrus.Fields{
 	trace.Component: teleport.ComponentProcess,
 })
+
+var certificateCache atomic.Value
 
 const (
 	// AuthIdentityEvent is generated when the Auth Servers identity has been
@@ -143,6 +146,8 @@ const (
 	// TeleportOKEvent is emitted whenever a service is operating normally.
 	TeleportOKEvent = "TeleportOKEvent"
 )
+
+const updateCacheInterval = 60 * time.Second
 
 // RoleConfig is a configuration for a server role (either proxy or node)
 type RoleConfig struct {
@@ -404,6 +409,25 @@ func Run(ctx context.Context, cfg Config, newTeleport NewProcess) error {
 	if err := srv.Start(); err != nil {
 		return trace.Wrap(err, "startup failed")
 	}
+
+	go func() error {
+		ticker := time.NewTicker(updateCacheInterval)
+		defer ticker.Stop()
+
+		for {
+			err := updateCertificate(&cfg)
+			if err != nil {
+				return err
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+			}
+		}
+	}()
+
 	// Wait and reload until called exit.
 	for {
 		srv, err = waitAndReload(ctx, cfg, srv, newTeleport)
@@ -2049,6 +2073,7 @@ func (process *TeleportProcess) initProxyEndpoint(conn *Connector) error {
 			if err != nil {
 				return trace.Wrap(err)
 			}
+			tlsConfig.GetCertificate = getCertificate
 			listeners.web = tls.NewListener(listeners.web, tlsConfig)
 		}
 		webServer = &http.Server{
@@ -2231,6 +2256,23 @@ func (process *TeleportProcess) initProxyEndpoint(conn *Connector) error {
 	if err := process.initUploaderService(accessPoint, conn.Client); err != nil {
 		return trace.Wrap(err)
 	}
+	return nil
+}
+
+func getCertificate(helloInfo *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	c := certificateCache.Load()
+	if c == nil {
+		return nil, errors.New("certificate is not loaded")
+	}
+	return c.(*tls.Certificate), nil
+}
+
+func updateCertificate(cfg *Config) error {
+	c, err := tls.LoadX509KeyPair(cfg.Proxy.TLSCert, cfg.Proxy.TLSKey)
+	if err != nil {
+		return fmt.Errorf("failed to load x509 key pair from (%s, %s): %v", cfg.Proxy.TLSCert, cfg.Proxy.TLSKey, err)
+	}
+	certificateCache.Store(&c)
 	return nil
 }
 
