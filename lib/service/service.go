@@ -417,7 +417,7 @@ func Run(ctx context.Context, cfg Config, newTeleport NewProcess) error {
 		for {
 			err := updateCertificate(&cfg)
 			if err != nil {
-				if !os.IsNotFound(err) {
+				if !trace.IsNotFound(err) {
 					return err
 				}
 			}
@@ -2071,10 +2071,7 @@ func (process *TeleportProcess) initProxyEndpoint(conn *Connector) error {
 		proxyLimiter.WrapHandle(webHandler)
 		if !process.Config.Proxy.DisableTLS {
 			log.Infof("Using TLS cert %v, key %v", cfg.Proxy.TLSCert, cfg.Proxy.TLSKey)
-			tlsConfig, err := utils.TLSConfig(cfg.CipherSuites)
-			if err != nil {
-				return trace.Wrap(err)
-			}
+			tlsConfig := utils.TLSConfig(cfg.CipherSuites)
 			tlsConfig.GetCertificate = getCertificate
 			listeners.web = tls.NewListener(listeners.web, tlsConfig)
 		}
@@ -2273,10 +2270,10 @@ func updateCertificate(cfg *Config) error {
 	certFile := cfg.Proxy.TLSCert
 	keyFile := cfg.Proxy.TLSKey
 	if _, err := os.Stat(certFile); err != nil {
-		return nil, err
+		return trace.Wrap(err)
 	}
 	if _, err := os.Stat(keyFile); err != nil {
-		return nil, err
+		return trace.Wrap(err)
 	}
 
 	c, err := tls.LoadX509KeyPair(certFile, keyFile)
